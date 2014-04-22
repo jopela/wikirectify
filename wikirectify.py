@@ -2,6 +2,7 @@
 
 import argparse
 import pymysql
+from progress.bar import Bar
 
 def main():
     """
@@ -28,7 +29,7 @@ def main():
     parser.add_argument(
             '-p',
             '--password',
-            help='password of the account used to connect tot he DB',
+            help='password of the account used to connect tot he DB.',
             required = True
             )
 
@@ -44,12 +45,12 @@ def main():
     parser.add_argument(
             '-d',
             '--database',
-            help='Database in which the wiki tables will be located. Default to {}'.format(database_default),
+            help='Database in which the wiki tables will be located. Default to {}.'.format(database_default),
             default=database_default
             )
 
     args = parser.parse_args()
-    print(args)
+    wikirectify(args.host, args.username, args.password, args.database)
 
     return
 
@@ -59,7 +60,21 @@ def wikirectify(host,user,passwd,db):
     """
 
     # connect to the database.
-    connection = pymysql.connect(host=host,
+    connection = pymysql.connect(host=host,user=user,passwd=passwd,db=db,charset='utf8')
+    cursor = connection.cursor()
+    table_list_query =  "select TABLE_NAME from information_schema.tables where TABLE_SCHEMA=%s"
+
+    cursor.execute(table_list_query, (db,))
+
+    wiki_table_prefix = 'coord_'
+    table_names = [row[0] for row in cursor if wiki_table_prefix in row[0]]
+    for name in table_names:
+        print(name)
+
+    cursor.close()
+    connection.close()
+
+
     # get the list of tables that are wikitables.
     # for all tables,
         # for all entry in the table
