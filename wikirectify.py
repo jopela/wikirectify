@@ -59,24 +59,31 @@ def wikirectify(host,user,passwd,db):
     Modify the coordinates of the POI for the wiki database.
     """
 
-    # connect to the database.
-    connection = pymysql.connect(host=host,user=user,passwd=passwd,db=db,charset='utf8')
+    # Connect to the database.
+    connection = pymysql.connect(host=host, user=user, passwd=passwd, db=db, charset='utf8')
     cursor = connection.cursor()
-    table_list_query =  "select TABLE_NAME from information_schema.tables where TABLE_SCHEMA=%s"
+    table_list_query = "select TABLE_NAME from information_schema.tables where TABLE_SCHEMA=%s"
 
     cursor.execute(table_list_query, (db,))
 
     wiki_table_prefix = 'coord_'
     table_names = [row[0] for row in cursor if wiki_table_prefix in row[0]]
-    for name in table_names:
-        print(name)
 
     cursor.close()
+
+    for name in table_names:
+        cursor = connection.cursor()
+        entry_query = "select gc_from, gc_lat, gc_lon from {}".format(name)
+        remote_wiki = wiki_api_host(name)
+        cursor.execute(entry_query)
+        for coord in cursor:
+            remote_id, lat, lon = coord
+            print(remote_id, lat, lon)
+
+        cursor.close()
+
     connection.close()
 
-
-    # get the list of tables that are wikitables.
-    # for all tables,
         # for all entry in the table
             # get the id and the coordinates of the entry.
             # get all the language link for that entry.
@@ -92,6 +99,22 @@ def wikirectify(host,user,passwd,db):
 
 
     return
+
+def wiki_api_host(name):
+    """
+    Returns the hostname of the wiki api endpoint corresponding to the given table name.
+
+    EXAMPLE
+    =======
+
+    >>> wiki_api_host('coord_enwiki')
+    'http://en.wikipedia.org/w/api.php'
+
+    >>> wiki_api_host('coord_frwiki')
+    'http://fr.wikipedia.org/w/api.php'
+    """
+
+    return 'http://mtrip.com'
 
 if __name__ == '__main__':
     main()
