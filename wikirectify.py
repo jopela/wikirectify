@@ -96,7 +96,8 @@ def wikirectify(host,user,passwd,db):
     connection.close()
 
             # get all the language link for that entry.
-            # if the number of language links is less then 4, remove that entry and continue.
+            # if the number of language links is less then 4, remove that entry
+            # and continue.
             # for all language links
                 # get the coordinate for that entry
 
@@ -112,43 +113,100 @@ def wikirectify(host,user,passwd,db):
 def lang_links(endpoint,pageid):
     """
     Returns all the language links (full url) of the page having the given
-    pageid.
+    pageid. Language links will include the page beeing queried.
     """
 
-    # See http://en.wikipedia.org/w/api.php for more info on the MediaWiki api.
+    # language link request.
     params = {
             "action":"query",
             "pageids":pageid,
             "prop":"langlinks",
             "llprop":"url",
-            "lllimit":500
+            "lllimit":500,
+            "format":"json",
             }
 
     r = requests.get(endpoint, params=params)
+
     raw_result = None
     try:
         raw_result = r.json()
     except Exception as e:
         logging.error('json response parsing failed for {} using.'\
-                ' Language list returned will be empty'.format())
+                '{}. Language list returned will be empty'.format(pageid,
+                    endpoint))
+        return []
+
+    page = None
+    try:
+        page = raw_result['query']['pages'][str(pageid)]
+    except Exception as e:
+        logging.error('the endpoint {} did not return pageid {}'\
+                ' Language list returned will be empty'.format(endpoint,
+                    page_id))
+        return []
+
+    lang_links = None
+    try:
+        lang_links = page['langlinks']
+    except Exception as e:
+        logging.error('there was not language links for {} using {}'\
+                ' Language list returned is empty.'.format(pageid,endpoint))
         return []
 
     result = []
+    for link in lang_links:
+        try:
+            url = link['url']
+            result.append(url)
+        except Exception as e:
+            logging.error('no url for {}'.format(link))
+
+    # append the url of the current page too.
+    self_url = full_url(endpoint,pageid)
+
+    if self_url:
+        result.append(self_url)
 
     return result
 
+def full_url(endpoint, pageid):
+    """
+    returns the full url of a page given it's id on endpoint.
+    """
+
+    params = {
+            "action":"query",
+            "format":"json",
+            "prop":"info",
+            "inprop":"url",
+            "pageids":pageid
+            }
+
+    r = requests.get(endpoint, params=params)
+
+    raw_result = None
+    try:
+        raw_result = r.json()
+    except Exception as e:
+        logging.error('could not query {} on {}. Full url will not be added'\
+                ' to the list.'.format(pageid,endpoint))
+        return None
+
+    url = None
+    try:
+        url = raw_result['query']['pages'][str(pageid)]['fullurl']
+    except Exception as e:
+        logging.error('api response for {} on {} did not contain a full url.'\
+                ' Will not be added to the list.'.format(pageid, endpoint))
+        return None
+
+    return url
+
 def wiki_api_host(name):
     """
-    Returns the hostname of the wiki api endpoint corresponding to the given table name.
-
-    EXAMPLE
-    =======
-
-    >>> wiki_api_host('coord_enwiki')
-    'http://en.wikipedia.org/w/api.php'
-
-    >>> wiki_api_host('coord_frwiki')
-    'http://fr.wikipedia.org/w/api.php'
+    Returns the hostname of the wiki api endpoint corresponding to the given
+    table name.
     """
 
     return 'http://mtrip.com'
