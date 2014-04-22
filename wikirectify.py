@@ -2,6 +2,8 @@
 
 import argparse
 import pymysql
+import requests
+import logging
 from progress.bar import Bar
 
 def main():
@@ -15,7 +17,7 @@ def main():
     parser.add_argument(
             '-H',
             '--host',
-            help='hostname of the database. Default to {}'.format(host_default),
+            help='Database hostname. Default to {}'.format(host_default),
             default = host_default
             )
 
@@ -37,7 +39,8 @@ def main():
     parser.add_argument(
             '-P',
             '--print',
-            help='print the SQL statement generated but do not run them against the database.',
+            help='print the SQL statement generated but do not run them'\
+                    'against the database.',
             default=print_default
             )
 
@@ -45,7 +48,8 @@ def main():
     parser.add_argument(
             '-d',
             '--database',
-            help='Database in which the wiki tables will be located. Default to {}.'.format(database_default),
+            help='Database in which the wiki tables will be located.'\
+            'Default to {}.'.format(database_default),
             default=database_default
             )
 
@@ -60,9 +64,15 @@ def wikirectify(host,user,passwd,db):
     """
 
     # Connect to the database.
-    connection = pymysql.connect(host=host, user=user, passwd=passwd, db=db, charset='utf8')
+    connection = pymysql.connect(
+            host=host,
+            user=user,
+            passwd=passwd,
+            db=db,
+            charset='utf8')
     cursor = connection.cursor()
-    table_list_query = "select TABLE_NAME from information_schema.tables where TABLE_SCHEMA=%s"
+    table_list_query = "select TABLE_NAME from information_schema.tables'\
+            ' where TABLE_SCHEMA=%s"
 
     cursor.execute(table_list_query, (db,))
 
@@ -74,18 +84,17 @@ def wikirectify(host,user,passwd,db):
     for name in table_names:
         cursor = connection.cursor()
         entry_query = "select gc_from, gc_lat, gc_lon from {}".format(name)
-        remote_wiki = wiki_api_host(name)
+        remote_wiki_host = wiki_api_host(name)
         cursor.execute(entry_query)
         for coord in cursor:
             remote_id, lat, lon = coord
+            lang_links = wiki_lang_links(remote_id,remote_wiki_host)
             print(remote_id, lat, lon)
 
         cursor.close()
 
     connection.close()
 
-        # for all entry in the table
-            # get the id and the coordinates of the entry.
             # get all the language link for that entry.
             # if the number of language links is less then 4, remove that entry and continue.
             # for all language links
@@ -97,8 +106,36 @@ def wikirectify(host,user,passwd,db):
             # compute the average.
             # update the coordinate with the computed average
 
-
     return
+
+
+def lang_links(endpoint,pageid):
+    """
+    Returns all the language links (full url) of the page having the given
+    pageid.
+    """
+
+    # See http://en.wikipedia.org/w/api.php for more info on the MediaWiki api.
+    params = {
+            "action":"query",
+            "pageids":pageid,
+            "prop":"langlinks",
+            "llprop":"url",
+            "lllimit":500
+            }
+
+    r = requests.get(endpoint, params=params)
+    raw_result = None
+    try:
+        raw_result = r.json()
+    except Exception as e:
+        logging.error('json response parsing failed for {} using.'\
+                ' Language list returned will be empty'.format())
+        return []
+
+    result = []
+
+    return result
 
 def wiki_api_host(name):
     """
