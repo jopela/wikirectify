@@ -133,11 +133,36 @@ def wikirectify(host,user,passwd,db,number):
 
 def geocoord(wiki):
     """
-    returns a tuple of the form (lat,lon) where lat is the WGS84 latitude of
+    Returns a tuple of the form (lat,lon) where lat is the WGS84 latitude of
     the subject of the wikipedia article and lon is the WGS84 longitude of the
     subject of the wikipedia article. If the article has no coordinates, will
     return None.
     """
+
+    endpoint = wiki_api_host_url(wiki)
+
+    params = {
+            "action":"query",
+            "format":"json",
+            "prop":"coordinates",
+            "coprimary":"primary"
+            }
+
+    r = requests.get(endpoint, params=params)
+    raw_result = None
+    try:
+        raw_result = r.json()
+    except Exception as e:
+        logging.error('query for {} did not return a valid'\
+                ' json response.'.format(wiki))
+        return None
+
+    coordinates = None
+    try:
+        pages = raw_result['query']['pages']
+        pageid = list(pages.keys())[0]
+        coords = pages[pageid]['coordinates']
+        coordinates = coords['lat'],coords['lon']
 
     return None
 
@@ -147,9 +172,12 @@ def wiki_api_host_url(wiki):
     article.
     """
 
-    parts =
+    parts = urlparse(wiki)
 
-    return
+    new_parts = (parts[0],parts[1],'/w/api.php','','','')
+    result = urlunparse(new_parts)
+
+    return result
 
 def lang_links(endpoint,pageid):
     """

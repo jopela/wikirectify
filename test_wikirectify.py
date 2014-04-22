@@ -14,7 +14,8 @@ def test_lang_links():
             'http://it.wikipedia.org/wiki/S-expression',
             'http://ja.wikipedia.org/wiki/S%E5%BC%8F',
             'http://ko.wikipedia.org/wiki/S-%ED%91%9C%ED%98%84%EC%8B%9D',
-            'http://ru.wikipedia.org/wiki/S-%D0%B2%D1%8B%D1%80%D0%B0%D0%B6%D0%B5%D0%BD%D0%B8%D0%B5',
+            'http://ru.wikipedia.org/wiki/S-%D0%B2%D1%8B%D1%80%D0%B0%D0%B6%'\
+                    'D0%B5%D0%BD%D0%B8%D0%B5',
             'http://zh.wikipedia.org/wiki/S-%E8%A1%A8%E8%BE%BE%E5%BC%8F',
             'http://en.wikipedia.org/wiki/S-expression']
 
@@ -67,6 +68,7 @@ def test_geocoord_present():
     present.
     """
     assert 1 == 2
+
     return
 
 def test_gecoord_not_present():
@@ -82,7 +84,16 @@ def test_wiki_api_host_url():
     must return the url endpoint of the corresponding wiki article.
 
     """
-    assert 1 == 2
+    couples = [
+    ('http://en.wikipedia.org/wiki/Montreal',
+        'http://en.wikipedia.org/w/api.php'),
+    ('http://ru.wikipedia.org/wiki/%D0%9C%D0%BE%D0%BD%D1%80%D0%B5%D0%B0%D0%B'\
+            'B%D1%8C', 'http://ru.wikipedia.org/w/api.php')
+    ]
+
+    for i,e in couples:
+        assert e == wikirectify.wiki_api_host_url(i)
+
     return
 
 
