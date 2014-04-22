@@ -2,7 +2,7 @@ import wikirectify
 
 def test_lang_links():
     """
-    must return a list of the language links from a live wikipedia instance.
+    Must return a list of the language links from a live wikipedia instance.
     """
     endpoint='http://en.wikipedia.org/w/api.php'
     pageid=54458
@@ -23,7 +23,7 @@ def test_lang_links():
 
 def test_full_url():
     """
-    must return the full url of a page given the pageid.
+    Must return the full url of a page given the pageid.
     """
 
     endpoint='http://en.wikipedia.org/w/api.php'
@@ -37,7 +37,7 @@ def test_full_url():
 
 def test_wiki_api_host():
     """
-    must return the api endpoint url corresponding to the given table name.
+    Must return the api endpoint url corresponding to the given table name.
     """
     table_name = 'coord_simplewiki'
     expected = 'http://simple.wikipedia.org/w/api.php'
@@ -48,7 +48,7 @@ def test_wiki_api_host():
 
 def test_lang_code():
     """
-    must return the language code found in the table_name.
+    Must return the language code found in the table_name.
     """
 
     names = ['coord_enwiki','coord_frwiki','coord_ruwiki', 'coord_simplewiki']
@@ -60,3 +60,29 @@ def test_lang_code():
         assert e == wikirectify.lang_code(n)
 
     return
+
+def test_geocoord_present():
+    """
+    Must return a tuple containing the lat and lon of the wiki when they are
+    present.
+    """
+    assert 1 == 2
+    return
+
+def test_gecoord_not_present():
+    """
+    must return None when the article contains no coordinates.
+    """
+
+    assert 1 == 2
+    return
+
+def test_wiki_api_host_url():
+    """
+    must return the url endpoint of the corresponding wiki article.
+
+    """
+    assert 1 == 2
+    return
+
+

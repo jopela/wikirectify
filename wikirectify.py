@@ -5,6 +5,7 @@ import pymysql
 import requests
 import logging
 from urllib.parse import urlunparse
+from urllib.parse import urlparse
 from progress.bar import Bar
 
 def main():
@@ -107,7 +108,9 @@ def wikirectify(host,user,passwd,db,number):
             if len(lang_links) < number:
                 remove_poi(connection, remote_id)
             else:
-                coordinates = [geocoord(wiki) for wiki in lang_links]
+                coords = [
+                    geocoord(wiki) for wiki in lang_links if geocoord(wiki)
+                    ]
                 # compute the average
 
         cursor.close()
@@ -125,6 +128,26 @@ def wikirectify(host,user,passwd,db,number):
             # if no coordinates left, remove the entry and continue.
             # compute the average.
             # update the coordinate with the computed average
+
+    return
+
+def geocoord(wiki):
+    """
+    returns a tuple of the form (lat,lon) where lat is the WGS84 latitude of
+    the subject of the wikipedia article and lon is the WGS84 longitude of the
+    subject of the wikipedia article. If the article has no coordinates, will
+    return None.
+    """
+
+    return None
+
+def wiki_api_host_url(wiki):
+    """
+    returns the api endpoint of the wiki instance where we can find the wiki
+    article.
+    """
+
+    parts =
 
     return
 
