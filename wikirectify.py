@@ -40,6 +40,14 @@ def main():
             default=print_default
             )
 
+    database_default = 'Linker'
+    parser.add_argument(
+            '-d',
+            '--database',
+            help='Database in which the wiki tables will be located. Default to {}'.format(database_default),
+            default=database_default
+            )
+
     args = parser.parse_args()
     print(args)
 
@@ -51,6 +59,7 @@ def wikirectify(host,user,passwd,db):
     """
 
     # connect to the database.
+    connection = pymysql.connect(host=host,
     # get the list of tables that are wikitables.
     # for all tables,
         # for all entry in the table
