@@ -35,5 +35,28 @@ def test_full_url():
 
     return
 
+def test_wiki_api_host():
+    """
+    must return the api endpoint url corresponding to the given table name.
+    """
+    table_name = 'coord_simplewiki'
+    expected = 'http://simple.wikipedia.org/w/api.php'
 
+    assert expected == wikirectify.wiki_api_host(table_name)
 
+    return
+
+def test_lang_code():
+    """
+    must return the language code found in the table_name.
+    """
+
+    names = ['coord_enwiki','coord_frwiki','coord_ruwiki', 'coord_simplewiki']
+    expecteds = ['en','fr','ru','simple']
+
+    names_expecteds = zip(names,expecteds)
+
+    for n,e in names_expecteds:
+        assert e == wikirectify.lang_code(n)
+
+    return

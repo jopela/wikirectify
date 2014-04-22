@@ -4,6 +4,7 @@ import argparse
 import pymysql
 import requests
 import logging
+from urllib.parse import urlunparse
 from progress.bar import Bar
 
 def main():
@@ -53,12 +54,26 @@ def main():
             default=database_default
             )
 
+    min_lang_default = 4
+    parser.add_argument(
+            '-n',
+            '--number',
+            help='minimum number of language links required to keep entry.'\
+            'Default to {}.'.format(min_lang_default),
+            default=min_lang_default
+            )
+
     args = parser.parse_args()
-    wikirectify(args.host, args.username, args.password, args.database)
+    wikirectify(
+            args.host,
+            args.username,
+            args.password,
+            args.database,
+            args.number)
 
     return
 
-def wikirectify(host,user,passwd,db):
+def wikirectify(host,user,passwd,db,number):
     """
     Modify the coordinates of the POI for the wiki database.
     """
@@ -71,8 +86,8 @@ def wikirectify(host,user,passwd,db):
             db=db,
             charset='utf8')
     cursor = connection.cursor()
-    table_list_query = "select TABLE_NAME from information_schema.tables'\
-            ' where TABLE_SCHEMA=%s"
+    table_list_query = "select TABLE_NAME from information_schema.tables"\
+            " where TABLE_SCHEMA=%s"
 
     cursor.execute(table_list_query, (db,))
 
@@ -88,8 +103,12 @@ def wikirectify(host,user,passwd,db):
         cursor.execute(entry_query)
         for coord in cursor:
             remote_id, lat, lon = coord
-            lang_links = wiki_lang_links(remote_id,remote_wiki_host)
-            print(remote_id, lat, lon)
+            lang_links = lang_links(remote_id,remote_wiki_host)
+            if len(lang_links) < number:
+                remove_poi(connection, remote_id)
+            else:
+                coordinates = [geocoord(wiki) for wiki in lang_links]
+                # compute the average
 
         cursor.close()
 
@@ -108,7 +127,6 @@ def wikirectify(host,user,passwd,db):
             # update the coordinate with the computed average
 
     return
-
 
 def lang_links(endpoint,pageid):
     """
@@ -203,13 +221,35 @@ def full_url(endpoint, pageid):
 
     return url
 
-def wiki_api_host(name):
+def wiki_api_host(table_name):
     """
     Returns the hostname of the wiki api endpoint corresponding to the given
-    table name.
+    table_name.
     """
 
-    return 'http://mtrip.com'
+    lang = lang_code(table_name)
+    parts = ('http', '{}.wikipedia.org'.format(lang), '/w/api.php', '', '', '')
+
+    result = urlunparse(parts)
+    return result
+
+
+def lang_code(table_name):
+    """
+    Returns the language code contained in the table_name.
+    """
+
+    prefix = 'coord_'
+    suffix = 'wiki'
+
+    result = table_name
+
+    valid = table_name.startswith(prefix) and table_name.endswith(suffix)
+    if not valid:
+        raise Exception('{} is not a valid table_name'.format(table_name))
+
+    result = table_name[len(prefix):-len(suffix)]
+    return result
 
 if __name__ == '__main__':
     main()
