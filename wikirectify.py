@@ -1,6 +1,7 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import argparse
+import pymysql
 
 def main():
     """
@@ -31,6 +32,39 @@ def main():
             required = True
             )
 
+    print_default = False
+    parser.add_argument(
+            '-P',
+            '--print',
+            help='print the SQL statement generated but do not run them against the database.',
+            default=print_default
+            )
+
+    args = parser.parse_args()
+    print(args)
+
+    return
+
+def wikirectify(host,user,passwd,db):
+    """
+    Modify the coordinates of the POI for the wiki database.
+    """
+
+    # connect to the database.
+    # get the list of tables that are wikitables.
+    # for all tables,
+        # for all entry in the table
+            # get the id and the coordinates of the entry.
+            # get all the language link for that entry.
+            # if the number of language links is less then 4, remove that entry and continue.
+            # for all language links
+                # get the coordinate for that entry
+
+            # compute the variance fo the coordinates
+            # reject the coordinates that are not within [avg-sigma, avg+sigma]
+            # if no coordinates left, remove the entry and continue.
+            # compute the average.
+            # update the coordinate with the computed average
 
 
     return
