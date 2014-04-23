@@ -47,6 +47,15 @@ def test_wiki_api_host():
 
     return
 
+def test_wiki_title():
+    """Must return the title of a wikipedia url"""
+    wiki = "http://en.wikipedia.org/wiki/Montreal"
+    expected = "Montreal"
+
+    assert expected == wikirectify.wiki_title(wiki)
+    return
+
+
 def test_lang_code():
     """
     Must return the language code found in the table_name.
@@ -67,8 +76,10 @@ def test_geocoord_present():
     Must return a tuple containing the lat and lon of the wiki when they are
     present.
     """
-    assert 1 == 2
+    wiki = 'http://en.wikipedia.org/wiki/Montreal'
+    expected = (45.5,-73.5667)
 
+    assert expected == wikirectify.geocoords(wiki)
     return
 
 def test_gecoord_not_present():
@@ -76,7 +87,10 @@ def test_gecoord_not_present():
     must return None when the article contains no coordinates.
     """
 
-    assert 1 == 2
+    wiki = 'http://en.wikipedia.org/wiki/S-expression'
+    expected = None
+
+    assert expected == wikirectify.geocoords(wiki)
     return
 
 def test_wiki_api_host_url():
@@ -94,6 +108,34 @@ def test_wiki_api_host_url():
     for i,e in couples:
         assert e == wikirectify.wiki_api_host_url(i)
 
+    return
+
+def test_is_probable_no():
+    """
+    Must return False when a point is improbable
+    """
+
+    p = (7,8)
+    mean_lats = 1
+    mean_lons = 2
+    sigma_lats = 1
+    sigma_lons = 0.8
+
+    assert not wikirectify.is_probable(p,mean_lats,mean_lons,sigma_lats,sigma_lons)
+    return
+
+def test_is_probable_yes():
+    """
+    Must return True when a point is probable
+    """
+
+    p = (8,9)
+    mean_lats = 7.5
+    mean_lons = 8.8
+    sigma_lats = 1
+    sigma_lons = 1
+
+    assert wikirectify.is_probable(p,mean_lats, mean_lons, sigma_lats,sigma_lons)
     return
 
 

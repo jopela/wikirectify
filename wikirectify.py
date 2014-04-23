@@ -4,9 +4,11 @@ import argparse
 import pymysql
 import requests
 import logging
+import statistics
 from urllib.parse import urlunparse
 from urllib.parse import urlparse
 from progress.bar import Bar
+
 
 def main():
     """
@@ -40,9 +42,10 @@ def main():
     print_default = False
     parser.add_argument(
             '-P',
-            '--print',
-            help='print the SQL statement generated but do not run them'\
-                    'against the database.',
+            '--printout',
+            help='print the (update/delete) SQL statement generated but do'\
+                    'not run them against the database. Select statements'\
+                    ' are always executed.',
             default=print_default
             )
 
@@ -55,7 +58,7 @@ def main():
             default=database_default
             )
 
-    min_lang_default = 4
+    min_lang_default = 2
     parser.add_argument(
             '-n',
             '--number',
@@ -70,11 +73,12 @@ def main():
             args.username,
             args.password,
             args.database,
-            args.number)
+            args.number,
+            args.printout)
 
     return
 
-def wikirectify(host,user,passwd,db,number):
+def wikirectify(host,user,passwd,db,number,printout):
     """
     Modify the coordinates of the POI for the wiki database.
     """
@@ -86,6 +90,7 @@ def wikirectify(host,user,passwd,db,number):
             passwd=passwd,
             db=db,
             charset='utf8')
+
     cursor = connection.cursor()
     table_list_query = "select TABLE_NAME from information_schema.tables"\
             " where TABLE_SCHEMA=%s"
@@ -102,36 +107,122 @@ def wikirectify(host,user,passwd,db,number):
         entry_query = "select gc_from, gc_lat, gc_lon from {}".format(name)
         remote_wiki_host = wiki_api_host(name)
         cursor.execute(entry_query)
+        pbar = Bar('Rectifying coordinates for'\
+                ' table {}'.format(name),max=cursor.rowcount())
+
         for coord in cursor:
             remote_id, lat, lon = coord
             lang_links = lang_links(remote_id,remote_wiki_host)
             if len(lang_links) < number:
-                remove_poi(connection, remote_id)
+                remove_poi(connection, name, remote_id, printout)
             else:
                 coords = [
-                    geocoord(wiki) for wiki in lang_links if geocoord(wiki)
+                    geocoords(wiki) for wiki in lang_links if geocoords(wiki)
                     ]
-                # compute the average
+
+                # we assume that 'good' coordinates are normally distributed.
+                # we therefore reject all the coordinates that are 'improbable'
+                # and recompute the average. Improbable is
+
+                lats,lons = zip(*coords)
+                sigma_lats = statistics.stdev(lats)
+                sigma_lons = statistics.stdev(lons)
+
+                mean_lats = statistics.mean(lats)
+                mean_lons = statistics.mean(lons)
+
+                probable_coords = [
+                        c for c in coords if is_probable( c, mean_lats,
+                            mean_lons,
+                            sigma_lats,
+                            sigma_lons)]
+
+                if len(probable_coords) > 0:
+                    lats,lon = zip(*probable_coords)
+                    new_lats = statistics.mean(lats)
+                    new_lon = statistics.mean(lons)
+                    update_poi(connection,
+                            name,
+                            remoe_id,
+                            new_lat,
+                            new_lon,
+                            printout)
+                else:
+                # If no coordinates make it pass the filtering, we cannot
+                # trust that point and we remove it from the DB.
+                    remove_poi(connection, name, remote_id, printout)
+
+
+            pbar.next()
 
         cursor.close()
+        pbar.finish()
 
     connection.close()
-
-            # get all the language link for that entry.
-            # if the number of language links is less then 4, remove that entry
-            # and continue.
-            # for all language links
-                # get the coordinate for that entry
-
-            # compute the variance fo the coordinates
-            # reject the coordinates that are not within [avg-sigma, avg+sigma]
-            # if no coordinates left, remove the entry and continue.
-            # compute the average.
-            # update the coordinate with the computed average
-
     return
 
-def geocoord(wiki):
+def update_poi(connection,table_name,gc_from,new_lat,new_lon,printout):
+    """
+    update the gc_from poi with the new_lat and new_lon.
+    """
+
+    update_cursor = connection.cursor()
+    query = "update {} set gc_lat=%s, gc_lon=%s where"\
+            " gc_from=%s".format(table_name)
+
+    if printout:
+        logging.warning("printing in lieu of updating:{}".format(query))
+    else:
+        update_cursor.execute(query, (new_lat, new_lon, gc_from))
+
+    update_cursor.close()
+    return
+
+
+def is_probable(point,mean_lats,mean_lons,sigma_lats,sigma_lons):
+    """
+    Returns true if the given points lat and lon both lie within
+    2 standard deviation of the means for each coordinates.
+    """
+
+    lat,lon = point
+
+    min_lat = mean_lats - (2*sigma_lats)
+    max_lat = mean_lats + (2*sigma_lats)
+
+    min_lon = mean_lons - (2*sigma_lons)
+    max_lon = mean_lons + (2*sigma_lons)
+
+    return (min_lat <= lat <= max_lat) and (min_lon <= lon <= max_lon)
+
+
+def remove_poi(connection, table_name, gc_from, printout=False):
+    """
+    Remove the poi from the database.
+    """
+
+    del_cursor = connection.cursor()
+    query = 'delete from {} where gc_from=%s'.format(table_name)
+
+    if printout:
+        logging.warning(query)
+    else:
+        del_cursor.execute(query,(gc_from,))
+
+    del_cursor.close()
+    return
+
+def wiki_title(wiki):
+    """
+    Returns the 'title' of a given wikilink. Title is the last part of the
+    path.
+    """
+
+    path = urlparse(wiki).path
+    last = path.split('/')[-1]
+    return last
+
+def geocoords(wiki):
     """
     Returns a tuple of the form (lat,lon) where lat is the WGS84 latitude of
     the subject of the wikipedia article and lon is the WGS84 longitude of the
@@ -140,12 +231,14 @@ def geocoord(wiki):
     """
 
     endpoint = wiki_api_host_url(wiki)
+    page_title = wiki_title(wiki)
 
     params = {
             "action":"query",
             "format":"json",
             "prop":"coordinates",
-            "coprimary":"primary"
+            "coprimary":"primary",
+            "titles":page_title
             }
 
     r = requests.get(endpoint, params=params)
@@ -161,10 +254,14 @@ def geocoord(wiki):
     try:
         pages = raw_result['query']['pages']
         pageid = list(pages.keys())[0]
-        coords = pages[pageid]['coordinates']
+        coords = pages[pageid]['coordinates'][0]
         coordinates = coords['lat'],coords['lon']
+    except Exception as e:
+        logging.error('{} does not have any associated'\
+                ' coordinates.'.format(wiki))
+        return None
 
-    return None
+    return coordinates
 
 def wiki_api_host_url(wiki):
     """
