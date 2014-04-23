@@ -9,7 +9,6 @@ from urllib.parse import urlunparse
 from urllib.parse import urlparse
 from progress.bar import Bar
 
-
 def main():
     """
     Rectify the coordinates of some POI in the mtrip database
@@ -46,7 +45,8 @@ def main():
             help='print the (update/delete) SQL statement generated but do'\
                     'not run them against the database. Select statements'\
                     ' are always executed.',
-            default=print_default
+            default=print_default,
+            action='store_true'
             )
 
     database_default = 'Linker'
@@ -58,7 +58,7 @@ def main():
             default=database_default
             )
 
-    min_lang_default = 2
+    min_lang_default = 5
     parser.add_argument(
             '-n',
             '--number',
@@ -83,6 +83,7 @@ def wikirectify(host,user,passwd,db,number,printout):
     Modify the coordinates of the POI for the wiki database.
     """
 
+    logging.warning('connecting to the databse')
     # Connect to the database.
     connection = pymysql.connect(
             host=host,
@@ -91,10 +92,13 @@ def wikirectify(host,user,passwd,db,number,printout):
             db=db,
             charset='utf8')
 
+    logging.warning('connected')
+
     cursor = connection.cursor()
     table_list_query = "select TABLE_NAME from information_schema.tables"\
             " where TABLE_SCHEMA=%s"
 
+    logging.warning('selecting the list of tables')
     cursor.execute(table_list_query, (db,))
 
     wiki_table_prefix = 'coord_'
@@ -102,18 +106,19 @@ def wikirectify(host,user,passwd,db,number,printout):
 
     cursor.close()
 
+    logging.warning('processing tables')
     for name in table_names:
         cursor = connection.cursor()
         entry_query = "select gc_from, gc_lat, gc_lon from {}".format(name)
         remote_wiki_host = wiki_api_host(name)
         cursor.execute(entry_query)
         pbar = Bar('Rectifying coordinates for'\
-                ' table {}'.format(name),max=cursor.rowcount())
+                ' table {}'.format(name),max=cursor.rowcount)
 
         for coord in cursor:
             remote_id, lat, lon = coord
-            lang_links = lang_links(remote_id,remote_wiki_host)
-            if len(lang_links) < number:
+            links = lang_links(remote_wiki_host,remote_id)
+            if len(links) < number:
                 logging.warning('not enough language links for'\
                         ' {} using {}'.format(remote_id,remote_wiki_host))
                 remove_poi(connection, name, remote_id, printout)
@@ -121,7 +126,7 @@ def wikirectify(host,user,passwd,db,number,printout):
                 logging.warning('fetching the geocoords of links for'\
                         ' {} using {}'.format(remote_id,remote_wiki_host))
                 coords = [
-                    geocoords(wiki) for wiki in lang_links if geocoords(wiki)
+                    geocoords(wiki) for wiki in links if geocoords(wiki)
                     ]
 
                 # we assume that 'good' coordinates are normally distributed.
@@ -321,16 +326,16 @@ def lang_links(endpoint,pageid):
                     page_id))
         return []
 
-    lang_links = None
+    links = None
     try:
-        lang_links = page['langlinks']
+        links = page['langlinks']
     except Exception as e:
         logging.error('there was not language links for {} using {}'\
                 ' Language list returned is empty.'.format(pageid,endpoint))
         return []
 
     result = []
-    for link in lang_links:
+    for link in links:
         try:
             url = link['url']
             result.append(url)
