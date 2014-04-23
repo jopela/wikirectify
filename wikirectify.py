@@ -114,8 +114,12 @@ def wikirectify(host,user,passwd,db,number,printout):
             remote_id, lat, lon = coord
             lang_links = lang_links(remote_id,remote_wiki_host)
             if len(lang_links) < number:
+                logging.warning('not enough language links for'\
+                        ' {} using {}'.format(remote_id,remote_wiki_host))
                 remove_poi(connection, name, remote_id, printout)
             else:
+                logging.warning('fetching the geocoords of links for'\
+                        ' {} using {}'.format(remote_id,remote_wiki_host))
                 coords = [
                     geocoords(wiki) for wiki in lang_links if geocoords(wiki)
                     ]
@@ -138,9 +142,13 @@ def wikirectify(host,user,passwd,db,number,printout):
                             sigma_lons)]
 
                 if len(probable_coords) > 0:
-                    lats,lon = zip(*probable_coords)
-                    new_lats = statistics.mean(lats)
+                    lats,lons = zip(*probable_coords)
+                    new_lat = statistics.mean(lats)
                     new_lon = statistics.mean(lons)
+                    logging.warning('new coordinate found for {}.'\
+                            ' new_lat:{},new_lon:{}'.format(remote_id,
+                                new_lat,new_lon))
+
                     update_poi(connection,
                             name,
                             remoe_id,
@@ -150,8 +158,9 @@ def wikirectify(host,user,passwd,db,number,printout):
                 else:
                 # If no coordinates make it pass the filtering, we cannot
                 # trust that point and we remove it from the DB.
+                    logging.warning('could not assign reliable coordinates'\
+                           ' to {} from {}'.format(remote_id,remote_wiki_host))
                     remove_poi(connection, name, remote_id, printout)
-
 
             pbar.next()
 
